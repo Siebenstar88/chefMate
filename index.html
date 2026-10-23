@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="de" class="h-full bg-stone-50">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChefMate - Interaktiver Koch-Assistent</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Google Fonts: Inter & Playfair Display -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,400&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            sage: {
+              50: '#f4f7f4',
+              100: '#e3ebe3',
+              200: '#c7d7c7',
+              500: '#648767',
+              600: '#4e6e51',
+              700: '#3f5742',
+            },
+            warm: {
+              50: '#fffaf5',
+              100: '#fef3e6',
+              500: '#e07a5f',
+              600: '#cb5e42',
+            },
+            amber: {
+              500: '#f59e0b',
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            serif: ['Playfair Display', 'serif'],
+          }
+        }
+      }
+    }
+  </script>
+  
+  <style>
+    /* Custom CSS animations and smooth transitions */
+    .fade-enter {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    .fade-enter-active {
+      opacity: 1;
+      transform: translateY(0);
+      transition: opacity 300ms, transform 300ms;
+    }
+    
+    /* Custom styling for pulse effect on active timer */
+    @keyframes timerPulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.03); }
+    }
+    .pulse-active {
+      animation: timerPulse 2s infinite ease-in-out;
+    }
+  </style>
+</head>
+<body class="h-full font-sans text-stone-800 antialiased flex flex-col selection:bg-sage-200">
+
+  <!-- Header -->
+  <header class="bg-white border-b border-stone-200 sticky top-0 z-30 shadow-sm">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+      <div class="flex items-center space-x-3 cursor-pointer" onclick="goToStep('input')">
+        <div class="w-10 h-10 rounded-xl bg-sage-500 text-white flex items-center justify-center text-xl shadow-md">
+          <i class="fa-solid font-bold fa-utensils"></i>
+        </div>
+        <div>
+          <h1 class="font-serif font-bold text-xl text-stone-900 tracking-tight leading-none">ChefMate</h1>
+          <p class="text-xs text-stone-500 font-medium">Dein intelligenter Küchen-Assistent</p>
+        </div>
+      </div>
+
+      <!-- Navigation / Controls -->
+      <div class="flex items-center space-x-2">
+        <button id="fullscreenToggleBtn" onclick="toggleFullscreen()" class="p-2.5 text-stone-600 hover:text-stone-900 hover:bg-stone-100 rounded-xl transition sm:flex items-center space-x-1.5 text-sm font-medium" title="Vollbild umschalten">
+          <i class="fa-solid fa-expand text-base"></i>
+          <span class="hidden sm:inline">Vollbild</span>
+        </button>
+        <button id="resetRecipeBtn" onclick="resetToInput()" class="hidden px-3.5 py-2 text-stone-600 hover:bg-stone-100 hover:text-stone-900 rounded-xl transition text-sm font-medium border border-stone-200 flex items-center space-x-1.5">
+          <i class="fa-solid fa-arrow-left"></i>
+          <span>Neues Rezept</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="flex-1 max-w-5xl w-full mx-auto p-4 sm:p-6 flex flex-col justify-center">
+
+    <!-- VIEW 1: REZEPT EINGABE & EDITOR -->
+    <section id="viewInput" class="space-y-6 max-w-3xl mx-auto w-full">
+      
+      <!-- Welcome Hero -->
+      <div class="text-center space-y-2 py-4">
+        <span class="px-3 py-1 bg-sage-100 text-sage-700 text-xs font-semibold uppercase tracking-wider rounded-full">Kochen leicht gemacht</span>
+        <h2 class="font-serif text-3xl sm:text-4xl font-bold text-stone-900">Welches Gericht kochen wir heute?</h2>
+        <p class="text-stone-600 max-w-xl mx-auto text-sm sm:text-base">Füge deinen Rezepttext von Gemini, ChatGPT oder einer Website ein. ChefMate parst Zutaten, Utensilien und Schritte automatisch für dich!</p>
+      </div>
+
+      <!-- Preset Quick-Select Buttons -->
+      <div class="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-stone-200/80 space-y-3">
+        <div class="flex items-center space-x-2 text-xs font-semibold text-stone-500 uppercase tracking-wider">
+          <i class="fa-solid fa-wand-magic-sparkles text-warm-500"></i>
+          <span>Beispiel-Rezepte zum Testen:</span>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          <button onclick="loadPreset('carbonara')" class="p-3 text-left rounded-xl border border-stone-200 hover:border-sage-500 hover:bg-sage-50 transition flex items-center space-x-3 group">
+            <span class="text-2xl">🍝</span>
+            <div>
+              <div class="font-semibold text-stone-800 text-sm group-hover:text-sage-700">Cremige Spaghetti Carbonara</div>
+              <div class="text-xs text-stone-500">Klassisch italienisch • ~20 Min.</div>
+            </div>
+          </button>
+          <button onclick="loadPreset('curry')" class="p-3 text-left rounded-xl border border-stone-200 hover:border-sage-500 hover:bg-sage-50 transition flex items-center space-x-3 group">
+            <span class="text-2xl">🍛</span>
+            <div>
+              <div class="font-semibold text-stone-800 text-sm group-hover:text-sage-700">Cremiges Gemüse-Curry</div>
+              <div class="text-xs text-stone-500">Vegan & würzig • ~30 Min.</div>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      <!-- Input Textarea Card -->
+      <div class="bg-white rounded-2xl shadow-sm border border-stone-200/80 p-5 sm:p-6 space-y-4">
+        <div class="flex justify-between items-center">
+          <label for="recipeInput" class="block font-semibold text-stone-800 flex items-center space-x-2">
+            <i class="fa-solid fa-align-left text-sage-500"></i>
+            <span>Rezept-Text hier einfügen:</span>
+          </label>
+          <button onclick="clearInput()" class="text-xs text-stone-400 hover:text-stone-600 flex items-center space-x-1">
+            <i class="fa-solid fa-trash-can"></i>
+            <span>Leeren</span>
+          </button>
+        </div>
+
+        <textarea id="recipeInput" rows="8" class="w-full p-4 text-stone-800 bg-stone-50 rounded-xl border border-stone-200 focus:bg-white focus:ring-2 focus:ring-sage-500 focus:border-sage-500 transition outline-none text-sm sm:text-base leading-relaxed placeholder:text-stone-400" placeholder="Füge dein Rezept hier ein...&#10;&#10;Beispiel:&#10;Zutaten: 200g Pasta, 2 Eier, 50g Parmesan, Pfeffer.&#10;Utensilien: Topf, Pfanne, Schüssel.&#10;&#10;Schritte:&#10;1. Das Wasser im Topf zum Kochen bringen und salzen. Pasta 10 Minuten kochen.&#10;2. In einer Schüssel Eier und geriebenen Parmesan verrühren..."></textarea>
+
+        <div class="pt-2 flex flex-col sm:flex-row gap-3">
+          <button onclick="parseAndStartCooking()" class="w-full py-3.5 px-6 bg-sage-600 hover:bg-sage-700 text-white font-semibold rounded-xl shadow-md shadow-sage-500/20 transition flex items-center justify-center space-x-2 text-base">
+            <i class="fa-solid fa-play"></i>
+            <span>Rezept analysieren & Kochen starten</span>
+          </button>
+        </div>
+      </div>
+
+    </section>
+
+
+    <!-- VIEW 2: REZEPT EDIT / VORSCHAU MODUS (Optional Anpassungen) -->
+    <section id="viewEdit" class="hidden space-y-6 max-w-3xl mx-auto w-full">
+      <div class="bg-white rounded-2xl shadow-sm border border-stone-200 p-6 space-y-6">
+        <div class="flex items-center justify-between border-b pb-4">
+          <div>
+            <h2 class="font-serif text-2xl font-bold text-stone-900" id="editRecipeTitle">Rezept-Vorschau</h2>
+            <p class="text-xs text-stone-500">Überprüfe die geparsten Schritte und passe sie bei Bedarf an.</p>
+          </div>
+          <button onclick="goToStep('input')" class="text-sm text-stone-500 hover:text-stone-800">
+            <i class="fa-solid fa-pen-to-square"></i> Text neu eingeben
+          </button>
+        </div>
+
+        <!-- Detected Overview -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="bg-stone-50 p-4 rounded-xl border border-stone-200">
+            <h3 class="font-semibold text-sm text-stone-800 mb-2 flex items-center space-x-2">
+              <i class="fa-solid fa-carrot text-warm-500"></i>
+              <span>Erkannte Zutaten</span>
+            </h3>
+            <ul id="editIngredientsList" class="text-xs text-stone-600 space-y-1 list-disc list-inside max-h-40 overflow-y-auto">
+              <!-- JS Populated -->
+            </ul>
+          </div>
+          <div class="bg-stone-50 p-4 rounded-xl border border-stone-200">
+            <h3 class="font-semibold text-sm text-stone-800 mb-2 flex items-center space-x-2">
+              <i class="fa-solid fa-kitchen-set text-sage-500"></i>
+              <span>Erkannte Utensilien</span>
+            </h3>
+            <ul id="editToolsList" class="text-xs text-stone-600 space-y-1 list-disc list-inside max-h-40 overflow-y-auto">
+              <!-- JS Populated -->
+            </ul>
+          </div>
+        </div>
+
+        <!-- Steps List preview -->
+        <div>
+          <h3 class="font-semibold text-stone-800 mb-3 flex items-center space-x-2">
+            <i class="fa-solid fa-list-ol text-sage-500"></i>
+            <span>Geparste Schritte (<span id="parsedStepCount">0</span>)</span>
+          </h3>
+          <div id="editStepsContainer" class="space-y-3 max-h-60 overflow-y-auto pr-1">
+            <!-- JS Populated -->
+          </div>
+        </div>
+
+        <div class="flex justify-between items-center pt-4 border-t">
+          <button onclick="goToStep('input')" class="px-4 py-2.5 text-stone-600 hover:bg-stone-100 rounded-xl font-medium text-sm">
+            Zurück
+          </button>
+          <button onclick="startCookingNow()" class="px-6 py-3 bg-sage-600 hover:bg-sage-700 text-white font-semibold rounded-xl shadow-md transition flex items-center space-x-2">
+            <span>Koch-Assistenten starten</span>
+            <i class="fa-solid fa-arrow-right"></i>
+          </button>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- VIEW 3: KOCH-MODUS / SCHRITT-FÜHRUNG -->
+    <section id="viewCook" class="hidden space-y-6 max-w-4xl mx-auto w-full">
+      
+      <!-- Top Progress Bar & Header Info -->
+      <div class="bg-white rounded-2xl shadow-sm border border-stone-200/80 p-4 sm:p-5 space-y-3">
+        <div class="flex items-center justify-between text-xs sm:text-sm font-medium text-stone-600">
+          <span id="recipeDisplayTitle" class="font-semibold text-stone-900 truncate max-w-[200px] sm:max-w-md"></span>
+          <span class="bg-sage-100 text-sage-700 px-3 py-1 rounded-full font-bold" id="stepIndicator">Schritt 1 von 5</span>
+        </div>
+        
+        <!-- Progress Bar -->
+        <div class="w-full bg-stone-100 h-2.5 rounded-full overflow-hidden">
+          <div id="progressBar" class="bg-sage-500 h-full transition-all duration-300 ease-out" style="width: 20%;"></div>
+        </div>
+
+        <!-- Quick Ingredients Drawer Toggle -->
+        <div class="pt-1 flex justify-between items-center text-xs">
+          <button onclick="toggleIngredientDrawer()" class="text-stone-600 hover:text-sage-700 font-medium flex items-center space-x-1.5 transition">
+            <i class="fa-solid fa-basket-shopping text-sage-500"></i>
+            <span>Alle Zutaten & Utensilien anzeigen</span>
+            <i id="drawerChevron" class="fa-solid fa-chevron-down text-[10px]"></i>
+          </button>
+
+          <div id="stepTimerBadge" class="hidden text-amber-600 font-medium flex items-center space-x-1">
+            <i class="fa-solid fa-stopwatch"></i>
+            <span id="detectedTimerText">Timer verfügbar</span>
+          </div>
+        </div>
+
+        <!-- Collapsible Prep Overview Drawer -->
+        <div id="ingredientDrawer" class="hidden pt-3 border-t border-stone-100 text-xs grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="bg-stone-50 p-3 rounded-xl">
+            <div class="font-semibold text-stone-700 mb-1">Gesamt-Zutaten:</div>
+            <ul id="drawerIngredients" class="space-y-1 text-stone-600 max-h-32 overflow-y-auto"></ul>
+          </div>
+          <div class="bg-stone-50 p-3 rounded-xl">
+            <div class="font-semibold text-stone-700 mb-1">Benötigte Utensilien:</div>
+            <div id="drawerTools" class="flex flex-wrap gap-1"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MAIN STEP CARD -->
+      <div class="bg-white rounded-2xl shadow-lg border border-stone-200/80 p-6 sm:p-8 space-y-6 relative overflow-hidden">
+        
+        <!-- Step Specific Requirements (Utensils & Ingredients) -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          
+          <!-- Required Utensils for this step -->
+          <div id="stepToolsCard" class="bg-sage-50/70 border border-sage-100 rounded-xl p-3.5 flex flex-col justify-center">
+            <span class="text-xs font-semibold text-sage-700 uppercase tracking-wider mb-2 flex items-center space-x-1.5">
+              <i class="fa-solid fa-kitchen-set"></i>
+              <span>Werkzeug für diesen Schritt:</span>
+            </span>
+            <div id="stepToolsList" class="flex flex-wrap gap-1.5">
+              <!-- JS Populated Badges -->
+            </div>
+          </div>
+
+          <!-- Required Ingredients for this step -->
+          <div id="stepIngredientsCard" class="bg-warm-50/70 border border-warm-100 rounded-xl p-3.5">
+            <span class="text-xs font-semibold text-warm-600 uppercase tracking-wider mb-2 flex items-center space-x-1.5">
+              <i class="fa-solid fa-carrot"></i>
+              <span>Zutaten für diesen Schritt:</span>
+            </span>
+            <div id="stepIngredientsList" class="space-y-1.5">
+              <!-- JS Populated Checklist -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Step Instruction Text (Large Typography) -->
+        <div class="py-2 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold uppercase tracking-widest text-stone-400">Anweisung</span>
+            <!-- Text-to-Speech Button -->
+            <button onclick="speakCurrentStep()" id="speakBtn" class="px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg text-xs font-semibold transition flex items-center space-x-1.5" title="Vorlesen">
+              <i class="fa-solid fa-volume-high text-sage-600"></i>
+              <span id="speakBtnText">Schritt vorlesen</span>
+            </button>
+          </div>
+          <p id="stepInstruction" class="text-xl sm:text-2xl font-serif text-stone-900 leading-relaxed font-medium">
+            <!-- Step text inserted here -->
+          </p>
+        </div>
+
+        <!-- Interactive Timer Card (Shows dynamically if a time is detected in step) -->
+        <div id="timerCard" class="hidden bg-stone-900 text-white rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-md">
+          <div class="flex items-center space-x-4">
+            <div class="w-12 h-12 rounded-xl bg-amber-500/20 text-amber-500 flex items-center justify-center text-2xl">
+              <i class="fa-solid fa-stopwatch"></i>
+            </div>
+            <div>
+              <div class="text-xs text-stone-400 uppercase tracking-wider font-semibold">Erkannter Timer</div>
+              <div id="timerDisplay" class="font-mono text-3xl font-bold text-amber-400">00:00</div>
+            </div>
+          </div>
+
+          <div class="flex items-center space-x-2 w-full sm:w-auto">
+            <button id="timerStartBtn" onclick="toggleTimer()" class="flex-1 sm:flex-none px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-stone-950 font-bold rounded-xl transition text-sm flex items-center justify-center space-x-2">
+              <i class="fa-solid fa-play" id="timerIcon"></i>
+              <span id="timerBtnText">Start</span>
+            </button>
+            <button onclick="resetTimer()" class="px-3 py-2.5 bg-stone-800 hover:bg-stone-700 text-stone-300 rounded-xl transition text-sm">
+              <i class="fa-solid fa-rotate-right"></i>
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- BOTTOM NAVIGATION BUTTONS (Big Touch Targets) -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <button onclick="prevStep()" id="prevBtn" class="p-4 bg-white hover:bg-stone-100 text-stone-700 font-semibold rounded-2xl border border-stone-200 transition shadow-sm flex items-center justify-center space-x-2 disabled:opacity-40 disabled:cursor-not-allowed">
+          <i class="fa-solid fa-chevron-left"></i>
+          <span>Zurück</span>
+        </button>
+
+        <button onclick="speakCurrentStep()" class="p-4 bg-white hover:bg-stone-100 text-stone-700 font-semibold rounded-2xl border border-stone-200 transition shadow-sm flex items-center justify-center space-x-2">
+          <i class="fa-solid fa-arrow-rotate-left text-sage-600"></i>
+          <span class="hidden sm:inline">Wiederholen</span>
+          <span class="sm:hidden">Nochmal</span>
+        </button>
+
+        <button onclick="nextStep()" id="nextBtn" class="col-span-2 p-4 bg-sage-600 hover:bg-sage-700 text-white font-bold rounded-2xl transition shadow-md shadow-sage-600/20 flex items-center justify-center space-x-2 text-lg">
+          <span id="nextBtnText">Nächster Schritt</span>
+          <i class="fa-solid fa-chevron-right"></i>
+        </button>
+      </div>
+
+    </section>
+
+
+    <!-- VIEW 4: ABSCHLUSS / GLÜCKWUNSCH SCREEN -->
+    <section id="viewFinished" class="hidden space-y-6 max-w-2xl mx-auto w-full text-center py-6">
+      <div class="bg-white rounded-3xl shadow-lg border border-stone-200 p-8 sm:p-10 space-y-6">
+        <div class="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center text-4xl mx-auto shadow-inner animate-bounce">
+          🎉
+        </div>
+
+        <div class="space-y-2">
+          <h2 class="font-serif text-3xl sm:text-4xl font-bold text-stone-900">Guten Appetit!</h2>
+          <p class="text-stone-600">Du hast das Rezept erfolgreich zu Ende gekocht.</p>
+        </div>
+
+        <div class="bg-warm-50 border border-warm-100 p-5 rounded-2xl text-left space-y-2">
+          <div class="font-semibold text-warm-600 text-sm flex items-center space-x-2">
+            <i class="fa-solid fa-lightbulb"></i>
+            <span>Anrichte- & Serviertipp:</span>
+          </div>
+          <p class="text-stone-700 text-sm leading-relaxed" id="finishTipText">
+            Lasse das Gericht vor dem Servieren 1-2 Minuten ruhen. Garniere Teller mit frischen Kräutern oder etwas hochwertigem Olivenöl für das perfekte Restaurant-Feeling zu Hause!
+          </p>
+        </div>
+
+        <div class="pt-4 flex flex-col sm:flex-row gap-3 justify-center">
+          <button onclick="resetToInput()" class="px-6 py-3.5 bg-sage-600 hover:bg-sage-700 text-white font-semibold rounded-xl shadow-md transition flex items-center justify-center space-x-2">
+            <i class="fa-solid fa-utensils"></i>
+            <span>Neues Rezept kochen</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Notification Toast -->
+  <div id="toast" class="fixed bottom-5 right-5 bg-stone-900 text-white px-5 py-3 rounded-xl shadow-xl transform translate-y-20 opacity-0 transition-all duration-300 flex items-center space-x-3 z-50">
+    <i id="toastIcon" class="fa-solid fa-bell text-amber-400"></i>
+    <span id="toastMessage" class="text-sm font-medium">Benachrichtigung</span>
+  </div>
+
+  <!-- Audio Context for Timer Sound -->
+  <script>
+    // App State Management
+    const state = {
+      rawText: '',
+      recipe: {
+        title: 'Dein Rezept',
+        ingredients: [],
+        tools: [],
+        steps: []
+      },
+      currentStepIndex: 0,
+      timer: {
+        interval: null,
+        totalSeconds: 0,
+        remainingSeconds: 0,
+        isRunning: false
+      },
+      speechSynth: window.speechSynthesis || null
+    };
+
+    // Dictionary of Common Kitchen Utensils for Parsing
+    const KNOWN_TOOLS = [
+      'topf', 'pfanne', 'schüssel', 'messer', 'schneidebrett', 'sieb', 'ofen', 
+      'backofen', 'pürierstab', 'mixer', 'kochlöffel', 'schneebesen', 'reibe', 
+      'auflaufform', 'messbecher', 'pfannenwender', 'schöpflöffel', 'alufolie',
+      'backpapier', 'geschirr', 'teller', 'dose', 'küchenpapier'
+    ];
+
+    // Presets Data
+    const PRESETS = {
+      carbonara: `Spaghetti Carbonara
+Zutaten: 200g Spaghetti, 100g Guanciale oder Pancetta, 2 frische Eigelb, 1 ganzes Ei, 50g Pecorino oder Parmesan, Schwarzer Pfeffer, Salz.
+Utensilien: Großer Topf, Pfanne, Schüssel, Schneidebrett, Messer, Käsereibe.
+
+1. Einen großen Topf mit reichlich Salzwasser zum Kochen bringen.
+2. Den Guanciale in kleine Würfel schneiden und in der Pfanne bei mittlerer Hitze ca. 6 Minuten knusprig anbraten, ohne zusätzliches Öl.
+3. Die Spaghetti im kochenden Wasser für ca. 9 Minuten al dente kochen.
+4. In einer Schüssel die Eigelbe, das ganze Ei und den geriebenen Käse mit reichlich frisch gemahlenem Pfeffer verquirlen.
+5. Etwas Nudelwasser (ca. 50ml) aufbewahren. Spaghetti abgießen, direkt in die Pfanne zum Fleisch geben und von der Herdplatte nehmen.
+6. Die Ei-Käse-Mischung rasch unterrühren, einen Schluck Nudelwasser dazugeben und 2 Minuten cremig emulgieren lassen. Sofort servieren!`,
+
+      curry: `Cremiges Gemüse-Curry
+Zutaten: 1 Dose Kokosmilch, 2 EL Currypaste, 1 Brokkoli, 2 Karotten, 1 Paprika, 200g Basmatireis, 1 EL Öl, Salz.
+Utensilien: Wok oder tiefe Pfanne, kleiner Topf, Schneidebrett, Messer, Kochlöffel.
+
+1. Den Reis im kleinen Topf mit der doppelten Menge leicht gesalzenem Wasser ca. 12 Minuten köcheln lassen.
+2. Das Gemüse gründlich waschen. Karotten in Scheiben, Brokkoli in Röschen und Paprika in Streifen schneiden.
+3. Öl im Wok erhitzen und die Currypaste für 1 Minute darin anbraten, bis sie duftet.
+4. Das geschnittene Gemüse hinzufügen und 4 Minuten unter Rühren anbraten.
+5. Mit der Kokosmilch ablöschen, Hitze reduzieren und 10 Minuten leise köcheln lassen, bis das Gemüse knackig-zart ist.
+6. Das Curry mit dem duftenden Basmatireis auf tiefen Tellern anrichten.`
+    };
+
+    // INIT FUNCTION
+    window.onload = function() {
+      // Check Speech Synthesis availability
+      if (!state.speechSynth) {
+        document.getElementById('speakBtn').style.display = 'none';
+      }
+    };
+
+    // NAVIGATION
+    function goToStep(view) {
+      document.getElementById('viewInput').classList.add('hidden');
+      document.getElementById('viewEdit').classList.add('hidden');
+      document.getElementById('viewCook').classList.add('hidden');
+      document.getElementById('viewFinished').classList.add('hidden');
+      document.getElementById('resetRecipeBtn').classList.add('hidden');
+
+      if (view === 'input') {
+        document.getElementById('viewInput').classList.remove('hidden');
+      } else if (view === 'edit') {
+        document.getElementById('viewEdit').classList.remove('hidden');
+        document.getElementById('resetRecipeBtn').classList.remove('hidden');
+      } else if (view === 'cook') {
+        document.getElementById('viewCook').classList.remove('hidden');
+        document.getElementById('resetRecipeBtn').classList.remove('hidden');
+      } else if (view === 'finished') {
+        document.getElementById('viewFinished').classList.remove('hidden');
+        document.getElementById('resetRecipeBtn').classList.remove('hidden');
+      }
+    }
+
+    function resetToInput() {
+      stopTimer();
+      stopSpeech();
+      goToStep('input');
+    }
+
+    function loadPreset(key) {
+      document.getElementById('recipeInput').value = PRESETS[key];
+      showToast('Beispiel-Rezept geladen!');
+    }
+
+    function clearInput() {
+      document.getElementById('recipeInput').value = '';
+    }
+
+    // PARSER LOGIC
+    function parseAndStartCooking() {
+      const text = document.getElementById('recipeInput').value.trim();
+      if (!text) {
+        showToast('Bitte füge zuerst ein Rezept ein!');
+        return;
+      }
+
+      state.rawText = text;
+      state.recipe = parseRecipeText(text);
+
+      if (state.recipe.steps.length === 0) {
+        showToast('Keine klaren Schritte erkannt. Versuche eine nummerierte Liste.');
+        return;
+      }
+
+      // Populate preview modal / edit
+      populateEditView();
+      goToStep('edit');
+    }
+
+    function parseRecipeText(text) {
+      const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+      
+      let title = "Dein leckeres Rezept";
+      let rawIngredients = [];
+      let rawTools = [];
+      let steps = [];
+
+      // Extract Title (First non-empty line if not labeled)
+      if (lines.length > 0 && !lines[0].toLowerCase().includes('zutat') && !lines[0].toLowerCase().includes('schritt')) {
+        title = lines[0].replace(/^#+\s*/, '');
+      }
+
+      // Identify section blocks
+      let currentSection = 'general';
+      
+      lines.forEach((line) => {
+        const lower = line.toLowerCase();
+        
+        if (lower.includes('zutat')) {
+          currentSection = 'ingredients';
+          const content = line.split(':')[1];
+          if (content) rawIngredients.push(...content.split(','));
+          return;
+        }
+        
+        if (lower.includes('utensil') || lower.includes('werkzeug') || lower.includes('zubehör')) {
+          currentSection = 'tools';
+          const content = line.split(':')[1];
+          if (content) rawTools.push(...content.split(','));
+          return;
+        }
+
+        if (lower.includes('schritt') || lower.includes('zubereitung') || lower.includes('anleitung')) {
+          currentSection = 'steps';
+          return;
+        }
+
+        if (currentSection === 'ingredients') {
+          rawIngredients.push(...line.split(','));
+        } else if (currentSection === 'tools') {
+          rawTools.push(...line.split(','));
+        } else if (currentSection === 'steps' || /^\d+[\.\)]/.test(line)) {
+          // Lines with numbers like "1.", "2)" or in step section
+          const cleanStep = line.replace(/^\d+[\.\)]\s*/, '').trim();
+          if (cleanStep) steps.push(cleanStep);
+        } else if (currentSection === 'general' && line !== title) {
+          // Fallback parsing for sentences that look like steps
+          if (line.length > 15) {
+            steps.push(line);
+          }
+        }
+      });
+
+      // If no explicit steps found, split text by sentence ends
+      if (steps.length === 0) {
+        steps = text.split(/(?<=[.!?])\s+/).filter(s => s.length > 10);
+      }
+
+      // Format ingredients clean
+      const cleanedIngredients = rawIngredients
+        .map(i => i.trim().replace(/^[-•*]\s*/, ''))
+        .filter(i => i.length > 0);
+
+      // Automatic tool extraction if none provided
+      if (rawTools.length === 0) {
+        KNOWN_TOOLS.forEach(tool => {
+          if (text.toLowerCase().includes(tool)) {
+            const capitalized = tool.charAt(0).toUpperCase() + tool.slice(1);
+            if (!rawTools.includes(capitalized)) rawTools.push(capitalized);
+          }
+        });
+      } else {
+        rawTools = rawTools.map(t => t.trim().replace(/^[-•*]\s*/, '')).filter(t => t.length > 0);
+      }
+
+      // Format Steps with step-specific items & timers
+      const formattedSteps = steps.map((stepText, idx) => {
+        // Detect Timer in Step
+        let timerMinutes = 0;
+        const timeMatch = stepText.match(/(\d+)\s*(minuten|minute|min)/i);
+        if (timeMatch) {
+          timerMinutes = parseInt(timeMatch[1], 10);
+        }
+
+        // Detect Step Ingredients
+        const stepIngredients = cleanedIngredients.filter(ing => {
+          // Match main words of ingredient
+          const words = ing.toLowerCase().split(' ').filter(w => w.length > 3);
+          return words.some(w => stepText.toLowerCase().includes(w));
+        });
+
+        // Detect Step Tools
+        const stepTools = rawTools.filter(tool => {
+          return stepText.toLowerCase().includes(tool.toLowerCase());
+        });
+
+        return {
+          id: idx + 1,
+          text: stepText,
+          timerMinutes: timerMinutes,
+          ingredients: stepIngredients.length > 0 ? stepIngredients : [],
+          tools: stepTools
+        };
+      });
+
+      return {
+        title,
+        ingredients: cleanedIngredients,
+        tools: rawTools,
+        steps: formattedSteps
+      };
+    }
+
+    // POPULATE EDIT VIEW
+    function populateEditView() {
+      document.getElementById('editRecipeTitle').innerText = state.recipe.title;
+      
+      const ingList = document.getElementById('editIngredientsList');
+      ingList.innerHTML = state.recipe.ingredients.length > 0 
+        ? state.recipe.ingredients.map(i => `<li>${escapeHtml(i)}</li>`).join('')
+        : '<li class="text-stone-400 italic">Keine expliziten Zutaten erkannt.</li>';
+
+      const toolList = document.getElementById('editToolsList');
+      toolList.innerHTML = state.recipe.tools.length > 0 
+        ? state.recipe.tools.map(t => `<li>${escapeHtml(t)}</li>`).join('')
+        : '<li class="text-stone-400 italic">Keine Utensilien erkannt.</li>';
+
+      document.getElementById('parsedStepCount').innerText = state.recipe.steps.length;
+      
+      const stepsContainer = document.getElementById('editStepsContainer');
+      stepsContainer.innerHTML = state.recipe.steps.map(s => `
+        <div class="p-3 bg-stone-50 rounded-xl border border-stone-200 text-xs sm:text-sm">
+          <span class="font-bold text-sage-600 mr-1">Schritt ${s.id}:</span>
+          <span class="text-stone-800">${escapeHtml(s.text)}</span>
+          ${s.timerMinutes ? `<span class="ml-2 px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full text-[10px] font-semibold"><i class="fa-solid fa-clock"></i> ${s.timerMinutes} Min.</span>` : ''}
+        </div>
+      `).join('');
+    }
+
+    function startCookingNow() {
+      state.currentStepIndex = 0;
+      goToStep('cook');
+      renderCookStep();
+    }
+
+    // COOKING MODE RENDERER
+    function renderCookStep() {
+      stopTimer();
+      stopSpeech();
+
+      const step = state.recipe.steps[state.currentStepIndex];
+      const totalSteps = state.recipe.steps.length;
+
+      // Header & Progress
+      document.getElementById('recipeDisplayTitle').innerText = state.recipe.title;
+      document.getElementById('stepIndicator').innerText = `Schritt ${state.currentStepIndex + 1} von ${totalSteps}`;
+      
+      const progressPercent = ((state.currentStepIndex + 1) / totalSteps) * 100;
+      document.getElementById('progressBar').style.width = `${progressPercent}%`;
+
+      // Step Instruction
+      document.getElementById('stepInstruction').innerText = step.text;
+
+      // Step Tools
+      const toolsCard = document.getElementById('stepToolsCard');
+      const toolsList = document.getElementById('stepToolsList');
+      if (step.tools.length > 0) {
+        toolsCard.classList.remove('hidden');
+        toolsList.innerHTML = step.tools.map(t => `
+          <span class="px-2.5 py-1 bg-sage-100 text-sage-800 text-xs font-medium rounded-lg flex items-center space-x-1">
+            <i class="fa-solid fa-kitchen-set text-[10px]"></i>
+            <span>${escapeHtml(t)}</span>
+          </span>
+        `).join('');
+      } else {
+        // Fallback: Show all tools in muted form if no specific tool detected
+        toolsCard.classList.remove('hidden');
+        toolsList.innerHTML = state.recipe.tools.slice(0, 3).map(t => `
+          <span class="px-2.5 py-1 bg-stone-100 text-stone-600 text-xs font-medium rounded-lg">
+            ${escapeHtml(t)}
+          </span>
+        `).join('') || '<span class="text-xs text-stone-400 italic">Standard Küchenutensilien</span>';
+      }
+
+      // Step Ingredients Checklist
+      const ingCard = document.getElementById('stepIngredientsCard');
+      const ingList = document.getElementById('stepIngredientsList');
+      const ingredientsToShow = step.ingredients.length > 0 ? step.ingredients : state.recipe.ingredients.slice(0, 3);
+
+      if (ingredientsToShow.length > 0) {
+        ingCard.classList.remove('hidden');
+        ingList.innerHTML = ingredientsToShow.map((ing, i) => `
+          <label class="flex items-center space-x-2 text-xs sm:text-sm text-stone-700 cursor-pointer hover:text-stone-900">
+            <input type="checkbox" class="rounded border-warm-300 text-warm-500 focus:ring-warm-400 w-4 h-4">
+            <span>${escapeHtml(ing)}</span>
+          </label>
+        `).join('');
+      } else {
+        ingCard.classList.add('hidden');
+      }
+
+      // Drawer Overview Sync
+      document.getElementById('drawerIngredients').innerHTML = state.recipe.ingredients.map(i => `<li>• ${escapeHtml(i)}</li>`).join('');
+      document.getElementById('drawerTools').innerHTML = state.recipe.tools.map(t => `<span class="px-2 py-0.5 bg-white border border-stone-200 rounded text-[11px]">${escapeHtml(t)}</span>`).join('');
+
+      // Step Timer Setup
+      const timerCard = document.getElementById('timerCard');
+      const timerBadge = document.getElementById('stepTimerBadge');
+
+      if (step.timerMinutes > 0) {
+        state.timer.totalSeconds = step.timerMinutes * 60;
+        state.timer.remainingSeconds = state.timer.totalSeconds;
+        updateTimerDisplay();
+        timerCard.classList.remove('hidden');
+        timerBadge.classList.remove('hidden');
+        document.getElementById('detectedTimerText').innerText = `${step.timerMinutes} Min. Timer`;
+      } else {
+        timerCard.classList.add('hidden');
+        timerBadge.classList.add('hidden');
+      }
+
+      // Button States
+      document.getElementById('prevBtn').disabled = state.currentStepIndex === 0;
+      
+      const nextBtnText = document.getElementById('nextBtnText');
+      if (state.currentStepIndex === totalSteps - 1) {
+        nextBtnText.innerText = 'Fertigstellen';
+      } else {
+        nextBtnText.innerText = 'Nächster Schritt';
+      }
+    }
+
+    function nextStep() {
+      if (state.currentStepIndex < state.recipe.steps.length - 1) {
+        state.currentStepIndex++;
+        renderCookStep();
+      } else {
+        // Finished Recipe
+        stopTimer();
+        stopSpeech();
+        goToStep('finished');
+      }
+    }
+
+    function prevStep() {
+      if (state.currentStepIndex > 0) {
+        state.currentStepIndex--;
+        renderCookStep();
+      }
+    }
+
+    // TIMER FUNCTIONALITY
+    function updateTimerDisplay() {
+      const mins = Math.floor(state.timer.remainingSeconds / 60);
+      const secs = state.timer.remainingSeconds % 60;
+      document.getElementById('timerDisplay').innerText = 
+        `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+
+    function toggleTimer() {
+      if (state.timer.isRunning) {
+        stopTimer();
+      } else {
+        startTimer();
+      }
+    }
+
+    function startTimer() {
+      if (state.timer.remainingSeconds <= 0) return;
+      
+      state.timer.isRunning = true;
+      document.getElementById('timerBtnText').innerText = 'Pause';
+      document.getElementById('timerIcon').className = 'fa-solid fa-pause';
+      document.getElementById('timerCard').classList.add('pulse-active');
+
+      state.timer.interval = setInterval(() => {
+        state.timer.remainingSeconds--;
+        updateTimerDisplay();
+
+        if (state.timer.remainingSeconds <= 0) {
+          stopTimer();
+          playAlarmSound();
+          showToast('⏰ Timer abgelaufen!');
+        }
+      }, 1000);
+    }
+
+    function stopTimer() {
+      state.timer.isRunning = false;
+      clearInterval(state.timer.interval);
+      document.getElementById('timerBtnText').innerText = 'Start';
+      document.getElementById('timerIcon').className = 'fa-solid fa-play';
+      document.getElementById('timerCard').classList.remove('pulse-active');
+    }
+
+    function resetTimer() {
+      stopTimer();
+      state.timer.remainingSeconds = state.timer.totalSeconds;
+      updateTimerDisplay();
+    }
+
+    // Audio Alert for Timer
+    function playAlarmSound() {
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, audioCtx.currentTime); // A5 note
+        gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+        
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        
+        osc.start();
+        osc.stop(audioCtx.currentTime + 1.5);
+      } catch (e) {
+        console.log('Audio Context Error', e);
+      }
+    }
+
+    // SPEECH SYNTHESIS (TEXT-TO-SPEECH)
+    function speakCurrentStep() {
+      if (!state.speechSynth) {
+        showToast('Sprachausgabe wird von diesem Browser nicht unterstützt.');
+        return;
+      }
+
+      if (state.speechSynth.speaking) {
+        state.speechSynth.cancel();
+        document.getElementById('speakBtnText').innerText = 'Schritt vorlesen';
+        return;
+      }
+
+      const step = state.recipe.steps[state.currentStepIndex];
+      const textToSpeak = `Schritt ${step.id}. ${step.text}`;
+
+      const utterance = new SpeechSynthesisUtterance(textToSpeak);
+      utterance.lang = 'de-DE';
+      utterance.rate = 0.95; // Slightly slower for better clarity in kitchen
+
+      utterance.onstart = function() {
+        document.getElementById('speakBtnText').innerText = 'Stoppen';
+      };
+
+      utterance.onend = function() {
+        document.getElementById('speakBtnText').innerText = 'Schritt vorlesen';
+      };
+
+      state.speechSynth.speak(utterance);
+    }
+
+    function stopSpeech() {
+      if (state.speechSynth && state.speechSynth.speaking) {
+        state.speechSynth.cancel();
+        const btnText = document.getElementById('speakBtnText');
+        if (btnText) btnText.innerText = 'Schritt vorlesen';
+      }
+    }
+
+    // UI UTILITIES
+    function toggleIngredientDrawer() {
+      const drawer = document.getElementById('ingredientDrawer');
+      const chevron = document.getElementById('drawerChevron');
+      drawer.classList.toggle('hidden');
+      chevron.classList.toggle('rotate-180');
+    }
+
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(err => {
+          showToast('Vollbildmodus konnte nicht aktiviert werden.');
+        });
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        }
+      }
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      const toastMsg = document.getElementById('toastMessage');
+      toastMsg.innerText = msg;
+      
+      toast.classList.remove('translate-y-20', 'opacity-0');
+      toast.classList.add('translate-y-0', 'opacity-100');
+
+      setTimeout(() => {
+        toast.classList.remove('translate-y-0', 'opacity-100');
+        toast.classList.add('translate-y-20', 'opacity-0');
+      }, 3500);
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.innerText = text;
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>
